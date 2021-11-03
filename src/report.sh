@@ -6,6 +6,7 @@ include "$KW_LIB_DIR/kw_config_loader.sh"
 include "$KW_LIB_DIR/kw_time_and_date.sh"
 include "$KW_LIB_DIR/kwlib.sh"
 include "$KW_LIB_DIR/kw_string.sh"
+include "$KW_LIB_DIR/statistics.sh"
 
 declare -g KW_POMODORO_DATA="$KW_DATA_DIR/pomodoro"
 declare -gA options_values
@@ -312,6 +313,13 @@ function report_parse()
 
   if [[ "$1" =~ -h|--help ]]; then
     report_help "$1"
+    exit 0
+  fi
+
+  if [[ "$1" =~ --statistics ]]; then
+    shift
+
+    statistics "$@"
     exit 0
   fi
 
