@@ -1,5 +1,6 @@
 #!/bin/bash
 
+include './src/report.sh'
 include './src/statistics.sh'
 include './tests/utils.sh'
 
@@ -43,6 +44,8 @@ function setUp()
 function test_statistics()
 {
   local msg
+  local start_target_week
+  local end_target_week
 
   declare -a expected_cmd=(
     'You have disable_statistics_data_track marked as "yes"'
@@ -50,37 +53,43 @@ function test_statistics()
   )
 
   configurations[disable_statistics_data_track]='yes'
-  output=$(statistics --)
+  output=$(statistics)
   compare_command_sequence 'expected_cmd' "$output" "$LINENO"
 
   configurations[disable_statistics_data_track]='no'
 
-  output=$(statistics --invalid-option)
-  msg='Invalid parameter: --invalid-option'
-  assertEquals "($LINENO)" "$msg" "$output"
+  options_values['DAY']=$(get_today_info '+%Y/%m/%d')
+  options_values['WEEK']=$(get_week_beginning_day 2021/11/17)
+  options_values['MONTH']=$(get_today_info '+%Y/%m')
+  options_values['YEAR']='2019'
 
-  output=$(statistics --day not_a_day 2> /dev/null)
-  msg='Invalid parameter: not_a_day'
-  assertEquals "($LINENO)" "$msg" "$output"
-
-  output=$(statistics --month 13 2> /dev/null)
-  msg='Invalid parameter: 13'
-  assertEquals "($LINENO)" "$msg" "$output"
-
-  output=$(statistics --month not_a_month 2> /dev/null)
-  msg='Invalid parameter: not_a_month'
-  assertEquals "($LINENO)" "$msg" "$output"
-
-  output=$(statistics --year -2021 2> /dev/null)
-  msg='Invalid parameter: -2021'
-  assertEquals "($LINENO)" "$msg" "$output"
-
-  output=$(statistics --year not_a_year 2> /dev/null)
-  msg='Invalid parameter: not_a_year'
-  assertEquals "($LINENO)" "$msg" "$output"
+  # DAY
+  msg='Currently, kw does not have any data for the present date.'
 
   output=$(statistics)
-  msg='Currently, kw does not have any data for the present date.'
+  assertEquals "($LINENO)" "$msg" "$output"
+
+  #WEEK
+  start_target_week='2021/11/14'
+  end_target_week='2021/11/20'
+  msg="Sorry, kw does not have any data from $start_target_week to $end_target_week"
+
+  options_values['DAY']=''
+  output=$(statistics)
+  assertEquals "($LINENO)" "$msg" "$output"
+
+  #MONTH
+  msg='Currently, kw does not have any data for the present month.'
+
+  options_values['WEEK']=''
+  output=$(statistics)
+  assertEquals "($LINENO)" "$msg" "$output"
+
+  #YEAR
+  msg='Currently, kw does not have any data for the requested year.'
+
+  options_values['MONTH']=''
+  output=$(statistics)
   assertEquals "($LINENO)" "$msg" "$output"
 }
 
