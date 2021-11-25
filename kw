@@ -185,13 +185,6 @@ function kw()
         kworkflow_version
       )
       ;;
-    statistics)
-      (
-        include "$KW_LIB_DIR/statistics.sh"
-
-        statistics "$@"
-      )
-      ;;
     pomodoro | p)
       (
         include "$KW_LIB_DIR/pomodoro.sh"
@@ -203,7 +196,7 @@ function kw()
       (
         include "$KW_LIB_DIR/report.sh"
 
-        report "$@"
+        report_main "$@"
       )
       ;;
     device)
