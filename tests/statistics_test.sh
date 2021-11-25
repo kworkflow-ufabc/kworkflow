@@ -41,58 +41,6 @@ function setUp()
   )
 }
 
-function test_statistics()
-{
-  local msg
-  local start_target_week
-  local end_target_week
-
-  declare -a expected_cmd=(
-    'You have disable_statistics_data_track marked as "yes"'
-    'If you want to see the statistics, change this option to "no"'
-  )
-
-  configurations[disable_statistics_data_track]='yes'
-  output=$(statistics)
-  compare_command_sequence 'expected_cmd' "$output" "$LINENO"
-
-  configurations[disable_statistics_data_track]='no'
-
-  options_values['DAY']=$(get_today_info '+%Y/%m/%d')
-  options_values['WEEK']=$(get_week_beginning_day 2021/11/17)
-  options_values['MONTH']=$(get_today_info '+%Y/%m')
-  options_values['YEAR']='2019'
-
-  # DAY
-  msg='Currently, kw does not have any data for the present date.'
-
-  output=$(statistics)
-  assertEquals "($LINENO)" "$msg" "$output"
-
-  #WEEK
-  start_target_week='2021/11/14'
-  end_target_week='2021/11/20'
-  msg="Sorry, kw does not have any data from $start_target_week to $end_target_week"
-
-  options_values['DAY']=''
-  output=$(statistics)
-  assertEquals "($LINENO)" "$msg" "$output"
-
-  #MONTH
-  msg='Currently, kw does not have any data for the present month.'
-
-  options_values['WEEK']=''
-  output=$(statistics)
-  assertEquals "($LINENO)" "$msg" "$output"
-
-  #YEAR
-  msg='Currently, kw does not have any data for the requested year.'
-
-  options_values['MONTH']=''
-  output=$(statistics)
-  assertEquals "($LINENO)" "$msg" "$output"
-}
-
 function test_calculate_average()
 {
   avg=$(calculate_average "10")

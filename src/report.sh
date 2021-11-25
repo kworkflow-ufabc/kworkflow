@@ -31,7 +31,21 @@ function report_main()
   fi
 
   if [[ "$is_statistics" == 1 ]]; then
-    statistics
+    if [[ "${configurations[disable_statistics_data_track]}" == 'yes' ]]; then
+      say 'You have disable_statistics_data_track marked as "yes"'
+      say 'If you want to see the statistics, change this option to "no"'
+      return
+    fi
+
+    if [[ -n "${options_values['DAY']}" ]]; then
+      day_statistics "${options_values['DAY']}"
+    elif [[ -n "${options_values['WEEK']}" ]]; then
+      week_statistics "${options_values['WEEK']}"
+    elif [[ -n "${options_values['MONTH']}" ]]; then
+      month_statistics "${options_values['MONTH']}"
+    elif [[ -n "${options_values['YEAR']}" ]]; then
+      year_statistics "${options_values['YEAR']}"
+    fi
     return
   elif [[ -n "${options_values['DAY']}" ]]; then
     grouping_day_data "${options_values['DAY']}"
@@ -312,15 +326,12 @@ function save_data_to()
 
 function parse_report_options()
 {
-  local output
-  local reference='DAY'
   local reference_count=0
-  local options
-  local long_options='day::,week::,month::,year::,output:,statistics::'
+  local long_options='day::,week::,month::,year::,output:,statistics'
   local short_options='o:'
+  local options
 
   options="$(kw_parse "$short_options" "$long_options" "$@")"
-
   if [[ "$?" != 0 ]]; then
     options_values['ERROR']="$(kw_parse_get_errors 'kw report' "$short_options" \
       "$long_options" "$@")"
@@ -338,49 +349,79 @@ function parse_report_options()
   while [[ "$#" -gt 0 ]]; do
     case "$1" in
       --day)
-        if [[ "$2" =~ $minimal_date_regex ]]; then
-          echo "bbbb"
+        if [[ -n "$2" ]]; then
           options_values['DAY']=$(date_to_format "$2" '+%Y/%m/%d')
-          shift 2
+          if [[ "$?" != 0 ]]; then
+            complain "$2 is an invalid date"
+            return 22 # EINVAL
+          fi
         else
-          echo "aaaaa"
           options_values['DAY']=$(get_today_info '+%Y/%m/%d')
-          shift
         fi
         
-        reference='DAY'
         reference_count+=1
+        shift 2
         ;;
       --week)
-        options_values['WEEK']=$(get_week_beginning_day)
-        reference='WEEK'
+        if [[ -n "$2" ]]; then
+          options_values['WEEK']=$(get_week_beginning_day "$2")
+          if [[ "$?" != 0 ]]; then
+            complain "$2 is an invalid date"
+            return 22 # EINVAL
+          fi
+        else
+          options_values['WEEK']=$(get_week_beginning_day)
+        fi
+        
         reference_count+=1
-        shift
+        shift 2
         ;;
       --month)
-        options_values['MONTH']=$(get_today_info '+%Y/%m')
-        reference='MONTH'
+        if [[ -n "$2" ]]; then
+          options_values['MONTH']=$(date_to_format "$2/01" '+%Y/%m')
+          if [[ "$?" != 0 ]]; then
+            complain "$2 is an invalid date"
+            return 22 # EINVAL
+          fi
+        else
+          options_values['MONTH']=$(get_today_info '+%Y/%m')
+        fi
+
         reference_count+=1
-        shift
+        shift 2
         ;;  
       --year)
-        options_values['YEAR']=$(date +%Y)
-        reference='YEAR'
+        if [[ -n "$2" ]]; then
+          options_values['YEAR']=$(date_to_format "$2/01/01" +%Y)
+          if [[ "$?" != 0 ]]; then
+            complain "$2 is an invalid date"
+            return 22 # EINVAL
+          fi
+        else
+          options_values['YEAR']=$(date +%Y)
+        fi
+
         reference_count+=1
-        shift
+        shift 2
         ;;
       --output)
-        options_values['OUTPUT']=""
-        output=1
-        shift
+        if [[ "$is_statistics" == 1 ]]; then
+          options_values['ERROR']='--output cannot be used with --statistics.'
+          return 22 # EINVAL
+        fi
+        options_values['OUTPUT']="$2"
+        shift 2
         ;;
       --statistics)
+        if [[ -n "${options_values['OUTPUT']}" ]]; then
+          options_values['ERROR']='--output cannot be used with --statistics.'
+          return 22 # EINVAL
+        fi
         is_statistics=1
         shift
         ;;
       --)
         shift
-        break
         ;;
       *)
         options_values['ERROR']="Unrecognized argument: $1"
@@ -393,48 +434,6 @@ function parse_report_options()
   if [[ "$reference_count" -gt 1 ]]; then
     complain 'Please, only use a single time reference'
     return 22
-  fi
-
-  if [[ "$output" == 1 ]]; then
-    if [[ "$is_statistics" == 1 ]]; then
-      options_values['ERROR']="--output cannot be used with --statistics."
-      return 22 # EINVAL
-    fi
-
-    if [[ "$#" == 1 ]]; then
-      options_values['OUTPUT']="$1"
-      shift
-    elif [[ "$#" == 2 ]]; then
-      options_values['OUTPUT']="$2"
-    else
-      options_values['ERROR']="Invalid path for the --output argument."
-      return 22 # EINVAL
-    fi
-  fi
-
-  if [[ "$#" == 0 && "$reference" == 'DAY' ]]; then
-    options_values['DAY']=$(get_today_info '+%Y/%m/%d')
-  elif [[ -n $1 ]]; then
-    case "$reference" in
-      'DAY')
-        options_values['DAY']=$(date_to_format "$1" '+%Y/%m/%d')
-        ;;
-      'WEEK')
-        options_values['WEEK']=$(get_week_beginning_day "$1")
-        ;;
-      'MONTH')
-        options_values['MONTH']=$(date_to_format "$1/01" '+%Y/%m')
-        ;;
-      'YEAR')
-        options_values['YEAR']=$(date_to_format "$1/01/01" +%Y)
-        ;;
-    esac
-
-    if [[ "$?" != 0 ]]; then
-      complain "Invalid parameter: $1"
-      return 22 # EINVAL
-    fi
-    shift
   fi
 }
 

@@ -46,18 +46,18 @@ function test_parse_report_options()
   # Values with parameters
   ## Days
   ref_date='1999/03/03'
-  parse_report_options '--day' "$ref_date"
+  parse_report_options "--day=$ref_date"
   expected_result=$(date_to_format "$ref_date" '+%Y/%m/%d')
   assert_equals_helper "$ref_date is a valid date" "$LINENO" "${options_values['DAY']}" "$expected_result"
 
   ref_date='2022/04/32'
-  output=$(parse_report_options "--day $ref_date" 2> /dev/null)
+  output=$(parse_report_options "--day=$ref_date" 2> /dev/null)
   ret="$?"
   assert_equals_helper "$ref_date is an invalid date" "$LINENO" "$ret" 22
 
   ## Weeks
   ref_date='1990/04/10'
-  parse_report_options '--week' "$ref_date"
+  parse_report_options "--week=$ref_date"
   expected_result=$(get_week_beginning_day "$ref_date")
   assert_equals_helper 'We expected 1990/04/04' "$LINENO" "${options_values['WEEK']}" "$expected_result"
 
@@ -68,7 +68,7 @@ function test_parse_report_options()
 
   ## Month
   ref_date='1990/04'
-  parse_report_options '--month' "$ref_date"
+  parse_report_options "--month=$ref_date"
   expected_result=$(date_to_format "$ref_date/01" '+%Y/%m')
   assert_equals_helper 'We expected 1990/04' "$LINENO" "${options_values['MONTH']}" "$expected_result"
 
@@ -82,6 +82,50 @@ function test_parse_report_options()
   output=$(parse_report_options "--month $ref_date --day $ref_date" 2> /dev/null)
   ret="$?"
   assert_equals_helper 'Invalid date' "$LINENO" "$ret" 22
+}
+
+function test_statistics()
+{
+  local msg
+  local start_target_week
+  local end_target_week
+
+  declare -a expected_cmd=(
+    'You have disable_statistics_data_track marked as "yes"'
+    'If you want to see the statistics, change this option to "no"'
+  )
+
+  configurations[disable_statistics_data_track]='yes'
+  output=$(report_main --statistics)
+  compare_command_sequence 'expected_cmd' "$output" "$LINENO"
+
+  configurations[disable_statistics_data_track]='no'
+
+  # DAY
+  msg='Currently, kw does not have any data for the present date.'
+
+  output=$(report_main --statistics --day)
+  assertEquals "($LINENO)" "$msg" "$output"
+
+  #WEEK
+  start_target_week='2021/11/14'
+  end_target_week='2021/11/20'
+  msg="Sorry, kw does not have any data from $start_target_week to $end_target_week"
+
+  output=$(report_main --statistics --week=2021/11/17)
+  assertEquals "($LINENO)" "$msg" "$output"
+
+  #MONTH
+  msg='Currently, kw does not have any data for the present month.'
+
+  output=$(report_main --statistics --month)
+  assertEquals "($LINENO)" "$msg" "$output"
+
+  #YEAR
+  msg='Currently, kw does not have any data for the requested year.'
+
+  output=$(report_main --statistics --year=2019)
+  assertEquals "($LINENO)" "$msg" "$output"
 }
 
 function test_expand_time_labels()

@@ -15,25 +15,6 @@ declare -ga statistics_opt=('deploy' 'build' 'list' 'uninstall' 'build_failure' 
 # container to be pass through other functions.
 declare -gA shared_data=(['deploy']='' ['build']='' ['list']='' ['uninstall']='' ['build_failure']='' ['Modules_deploy']='')
 
-function statistics()
-{
-  if [[ "${configurations[disable_statistics_data_track]}" == 'yes' ]]; then
-    say 'You have disable_statistics_data_track marked as "yes"'
-    say 'If you want to see the statistics, change this option to "no"'
-    return
-  fi
-
-  if [[ -n "${options_values['DAY']}" ]]; then
-    day_statistics "${options_values['DAY']}"
-  elif [[ -n "${options_values['WEEK']}" ]]; then
-    week_statistics "${options_values['WEEK']}"
-  elif [[ -n "${options_values['MONTH']}" ]]; then
-    month_statistics "${options_values['MONTH']}"
-  elif [[ -n "${options_values['YEAR']}" ]]; then
-    year_statistics "${options_values['YEAR']}"
-  fi
-}
-
 # Calculate average value from a list of values separated by space.
 #
 # @list_of_values List of values separated with space
