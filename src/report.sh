@@ -12,6 +12,7 @@ declare -g KW_POMODORO_DATA="$KW_DATA_DIR/pomodoro"
 declare -gA options_values
 declare -gA tags_details
 declare -gA tags_metadata
+declare -g statistics_data
 
 function report_main()
 {
@@ -29,10 +30,51 @@ function report_main()
     return 22 # EINVAL
   fi
 
-  if [[ "${options_values['STATISTICS']}" == 1 ]]; then
-    show_statistics
+  if [[ -n "${options_values['STATISTICS']}" ]]; then
+    run_statistics
+  fi
+
+  if [[ -n "${options_values['POMODORO']}" ]]; then
+    run_pomodoro
+  fi
+
+  if [[ -z "${options_values['OUTPUT']}" ]]; then
+    [[ -n "${options_values['STATISTICS']}" ]] && show_statistics
+    [[ -n "${options_values['POMODORO']}" ]] && show_data "$target_time"
+  else
+    save_data_to "${options_values['OUTPUT']}"
+  fi
+}
+
+# Call the statistics based on the options_values
+function run_statistics()
+{
+  if [[ "${configurations[disable_statistics_data_track]}" == 'yes' ]]; then
+    say 'You have disable_statistics_data_track marked as "yes"'
+    say 'If you want to see the statistics, change this option to "no"'
     return
-  elif [[ -n "${options_values['DAY']}" ]]; then
+  fi
+
+  if [[ -n "${options_values['DAY']}" ]]; then
+    statistics_data=$(day_statistics "${options_values['DAY']}")
+  elif [[ -n "${options_values['WEEK']}" ]]; then
+    statistics_data=$(week_statistics "${options_values['WEEK']}")
+  elif [[ -n "${options_values['MONTH']}" ]]; then
+    statistics_data=$(month_statistics "${options_values['MONTH']}")
+  elif [[ -n "${options_values['YEAR']}" ]]; then
+    statistics_data=$(year_statistics "${options_values['YEAR']}")
+  fi
+}
+
+function show_statistics()
+{
+  printf "# Statistics: $date\n"
+  printf "$statistics_data\n\n"
+}
+
+function run_pomodoro()
+{
+  if [[ -n "${options_values['DAY']}" ]]; then
     grouping_day_data "${options_values['DAY']}"
     target_time="${options_values['DAY']}"
   elif [[ -n "${options_values['WEEK']}" ]]; then
@@ -44,32 +86,6 @@ function report_main()
   elif [[ -n "${options_values['YEAR']}" ]]; then
     target_time="${options_values['YEAR']}"
     grouping_year_data "${options_values['YEAR']}"
-  fi
-
-  if [[ -z "${options_values['OUTPUT']}" ]]; then
-    show_data "$target_time"
-  else
-    save_data_to "${options_values['OUTPUT']}"
-  fi
-}
-
-# Call the statistics based on the options_values
-function show_statistics()
-{
-  if [[ "${configurations[disable_statistics_data_track]}" == 'yes' ]]; then
-    say 'You have disable_statistics_data_track marked as "yes"'
-    say 'If you want to see the statistics, change this option to "no"'
-    return
-  fi
-
-  if [[ -n "${options_values['DAY']}" ]]; then
-    day_statistics "${options_values['DAY']}"
-  elif [[ -n "${options_values['WEEK']}" ]]; then
-    week_statistics "${options_values['WEEK']}"
-  elif [[ -n "${options_values['MONTH']}" ]]; then
-    month_statistics "${options_values['MONTH']}"
-  elif [[ -n "${options_values['YEAR']}" ]]; then
-    year_statistics "${options_values['YEAR']}"
   fi
 }
 
@@ -326,14 +342,16 @@ function save_data_to()
     exit "$ret"
   fi
 
-  show_data > "$path"
+  > "$path"
+  [[ -n "${options_values['STATISTICS']}" ]] && show_statistics >> "$path"
+  [[ -n "${options_values['POMODORO']}" ]] && show_data "$target_time" >> "$path"
 }
 
 function parse_report_options()
 {
   local reference_count=0
-  local long_options='day::,week::,month::,year::,output:,statistics'
-  local short_options='o:,s'
+  local long_options='day::,week::,month::,year::,output:,statistics,pomodoro,all'
+  local short_options='o:,s,p,a'
   local options
 
   options="$(kw_parse "$short_options" "$long_options" "$@")"
@@ -349,6 +367,7 @@ function parse_report_options()
   options_values['YEAR']=''
   options_values['OUTPUT']=''
   options_values['STATISTICS']=''
+  options_values['POMODORO']=''
 
   eval "set -- $options"
 
@@ -418,6 +437,15 @@ function parse_report_options()
         options_values['STATISTICS']=1
         shift
         ;;
+      --pomodoro | -p)
+        options_values['POMODORO']=1
+        shift
+        ;;
+      --all | -a)
+        options_values['STATISTICS']=1
+        options_values['POMODORO']=1
+        shift
+        ;;
       --)
         shift
         ;;
@@ -429,9 +457,9 @@ function parse_report_options()
     esac
   done
 
-  if [[ -n "${options_values['STATISTICS']}" ]] && [[ -n "${options_values['OUTPUT']}" ]]; then
-    options_values['ERROR']='--output cannot be used with --statistics.'
-    return 22 # EINVAL
+  if [[ -z "${options_values['STATISTICS']}" ]] && [[ -z "${options_values['POMODORO']}" ]] && [[ -z "${options_values['ALL']}" ]]; then
+    options_values['STATISTICS']=1
+    options_values['POMODORO']=1
   fi
 
   if [[ "$reference_count" -gt 1 ]]; then
